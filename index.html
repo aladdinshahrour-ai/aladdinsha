@@ -3,235 +3,65 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>نظام الحضور والانصراف الموثوق</title>
+  <title>نظام الحضور الانصراف الموثوق (Debug Mode)</title>
   
+  <!-- نظام اصطياد الأخطاء الجذري يوضع في الرأس ليعمل قبل أي شيء -->
+  <script>
+    window.onerror = function(msg, url, line) {
+      const dc = document.getElementById("debugConsole");
+      if(dc) dc.innerHTML += "<div style='color:#ff4444;'>[!] خطأ برمجي (سطر " + line + "): " + msg + "</div>";
+      return false;
+    };
+  </script>
+
   <style>
     :root {
-      --bg: #0f172a;
-      --card: #1e293b;
-      --text: #f8fafc;
-      --text-muted: #94a3b8;
-      --accent: #3b82f6;
-      --success: #22c55e;
-      --danger: #ef4444;
-      --border: #334155;
+      --bg: #0f172a; --card: #1e293b; --text: #f8fafc;
+      --text-muted: #94a3b8; --accent: #3b82f6; --success: #22c55e;
+      --danger: #ef4444; --border: #334155;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); display: flex; justify-content: center; padding: 14px; min-height: 100vh; }
+    .container { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 14px; }
+    
+    /* شاشة التشخيص (Debug Console) */
+    #debugConsole {
+      background: #000; color: #4ade80; font-family: monospace; font-size: 11px;
+      padding: 10px; border-radius: 8px; border: 1px dashed #4ade80;
+      direction: ltr; text-align: left; max-height: 180px; overflow-y: auto;
     }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
-
-    body {
-      background-color: var(--bg);
-      color: var(--text);
-      display: flex;
-      justify-content: center;
-      padding: 14px;
-      min-height: 100vh;
-    }
-
-    .container {
-      width: 100%;
-      max-width: 420px;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 16px;
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-    }
-
-    h1 {
-      font-size: 1.15rem;
-      text-align: center;
-      margin-bottom: 12px;
-    }
-
-    .form-group {
-      margin-bottom: 12px;
-    }
-
-    label {
-      display: block;
-      font-size: 0.85rem;
-      color: var(--text-muted);
-      margin-bottom: 6px;
-    }
-
-    input {
-      width: 100%;
-      padding: 12px;
-      background: #0f172a;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text);
-      font-size: 0.95rem;
-      outline: none;
-      transition: all 0.2s;
-    }
-
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+    h1 { font-size: 1.15rem; text-align: center; margin-bottom: 12px; }
+    .form-group { margin-bottom: 12px; }
+    label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px; }
+    input { width: 100%; padding: 12px; background: #0f172a; border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 0.95rem; outline: none; }
     input:focus { border-color: var(--accent); }
-    input.locked-input {
-      background-color: #0b1120 !important;
-      border-color: #1e40af !important;
-      color: #93c5fd !important;
-      font-weight: bold;
-      cursor: not-allowed;
-    }
-
-    .meta-box {
-      background: #0f172a;
-      padding: 10px;
-      border-radius: 8px;
-      border: 1px dashed var(--accent);
-      margin-bottom: 12px;
-      font-size: 0.8rem;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .meta-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .meta-val {
-      font-family: monospace;
-      color: #60a5fa;
-      font-weight: bold;
-    }
-
-    .status-panel {
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      background: #0f172a;
-      padding: 6px 14px;
-      border-radius: 20px;
-      font-size: 0.85rem;
-      border: 1px solid var(--border);
-    }
-
-    .status-dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background-color: #64748b;
-      transition: all 0.3s ease;
-    }
-    .status-dot.active {
-      background-color: var(--success);
-      box-shadow: 0 0 14px var(--success);
-    }
-
-    .timer-display {
-      font-size: 2.2rem;
-      font-weight: 700;
-      letter-spacing: 2px;
-      font-variant-numeric: tabular-nums;
-    }
-
-    #reader-container {
-      width: 100%;
-      min-height: 250px;
-      background: #000;
-      border-radius: 12px;
-      overflow: hidden;
-      border: 1px solid var(--border);
-      display: none;
-    }
+    input.locked-input { background-color: #0b1120 !important; border-color: #1e40af !important; color: #93c5fd !important; font-weight: bold; cursor: not-allowed; }
+    .meta-box { background: #0f172a; padding: 10px; border-radius: 8px; border: 1px dashed var(--accent); margin-bottom: 12px; font-size: 0.8rem; display: flex; flex-direction: column; gap: 6px; }
+    .meta-item { display: flex; justify-content: space-between; align-items: center; }
+    .meta-val { font-family: monospace; color: #60a5fa; font-weight: bold; }
+    .status-panel { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .status-badge { display: inline-flex; align-items: center; gap: 8px; background: #0f172a; padding: 6px 14px; border-radius: 20px; font-size: 0.85rem; border: 1px solid var(--border); }
+    .status-dot { width: 12px; height: 12px; border-radius: 50%; background-color: #64748b; transition: all 0.3s ease; }
+    .status-dot.active { background-color: var(--success); box-shadow: 0 0 14px var(--success); }
+    .timer-display { font-size: 2.2rem; font-weight: 700; letter-spacing: 2px; font-variant-numeric: tabular-nums; }
+    #reader-container { width: 100%; min-height: 250px; background: #000; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); display: none; }
     #reader { width: 100% !important; }
-
-    .divider {
-      display: flex;
-      align-items: center;
-      text-align: center;
-      margin: 14px 0;
-      color: var(--text-muted);
-      font-size: 0.8rem;
-    }
-    .divider::before, .divider::after {
-      content: '';
-      flex: 1;
-      border-bottom: 1px solid var(--border);
-    }
+    .divider { display: flex; align-items: center; text-align: center; margin: 14px 0; color: var(--text-muted); font-size: 0.8rem; }
+    .divider::before, .divider::after { content: ''; flex: 1; border-bottom: 1px solid var(--border); }
     .divider:not(:empty)::before { margin-left: .5em; }
     .divider:not(:empty)::after { margin-right: .5em; }
-
-    .scanned-result-box {
-      background: #0f172a;
-      border: 1px solid var(--accent);
-      border-radius: 10px;
-      padding: 10px;
-      margin-top: 10px;
-      display: none;
-    }
-    .scanned-result-title {
-      font-size: 0.8rem;
-      color: var(--accent);
-      font-weight: bold;
-      margin-bottom: 4px;
-    }
-    .scanned-result-text {
-      font-family: monospace;
-      font-size: 0.8rem;
-      color: #e2e8f0;
-      word-break: break-all;
-      background: rgba(255, 255, 255, 0.05);
-      padding: 6px;
-      border-radius: 6px;
-    }
-
-    button {
-      width: 100%;
-      padding: 13px;
-      border-radius: 10px;
-      border: none;
-      font-size: 0.95rem;
-      font-weight: 600;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      transition: opacity 0.2s;
-    }
-    button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
+    .scanned-result-box { background: #0f172a; border: 1px solid var(--accent); border-radius: 10px; padding: 10px; margin-top: 10px; display: none; }
+    .scanned-result-title { font-size: 0.8rem; color: var(--accent); font-weight: bold; margin-bottom: 4px; }
+    .scanned-result-text { font-family: monospace; font-size: 0.8rem; color: #e2e8f0; word-break: break-all; background: rgba(255, 255, 255, 0.05); padding: 6px; border-radius: 6px; }
+    button { width: 100%; padding: 13px; border-radius: 10px; border: none; font-size: 0.95rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-submit { background-color: #2563eb; color: white; }
     .btn-primary { background-color: var(--accent); color: white; }
     .btn-success { background-color: #16a34a; color: white; }
     .btn-danger { background-color: var(--danger); color: white; }
-
-    .alert {
-      padding: 12px;
-      border-radius: 8px;
-      font-size: 0.85rem;
-      text-align: center;
-      word-break: break-word;
-      display: none;
-    }
+    .alert { padding: 12px; border-radius: 8px; font-size: 0.85rem; text-align: center; word-break: break-word; display: none; }
     .alert-success { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid #22c55e; }
     .alert-error { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid #ef4444; }
     .alert-warning { background: rgba(234, 179, 8, 0.15); color: #facc15; border: 1px solid #eab308; }
@@ -240,6 +70,13 @@
 <body>
 
   <div class="container">
+    
+    <!-- شاشة التشخيص (Debug Log) لتتبع الأخطاء -->
+    <div id="debugConsole">
+      <div>[1] بدء تشغيل النظام...</div>
+    </div>
+
+    <!-- بطاقة الهوية -->
     <div class="card" id="identityCard">
       <h1>بيانات هوية الموظف</h1>
       <div class="meta-box">
@@ -249,7 +86,7 @@
         </div>
         <div class="meta-item">
           <span>بصمة العتاد (Hardware):</span>
-          <span class="meta-val" id="deviceIdDisplay" style="font-size: 0.75rem;">جاري المعالجة...</span>
+          <span class="meta-val" id="deviceIdDisplay" style="font-size: 0.75rem;">جاري القراءة...</span>
         </div>
       </div>
       <div class="form-group">
@@ -264,6 +101,7 @@
       </div>
     </div>
 
+    <!-- لوحة التايمر -->
     <div class="card status-panel">
       <div class="status-badge">
         <span class="status-dot" id="statusDot"></span>
@@ -274,6 +112,7 @@
 
     <div id="alertBox" class="alert"></div>
 
+    <!-- الحضور والانصراف -->
     <div class="card">
       <h2 style="font-size: 0.95rem; margin-bottom: 12px; text-align: center; color: var(--text-muted);">
         تسجيل الحضور / الانصراف
@@ -301,12 +140,11 @@
     </div>
   </div>
 
-  <!-- تم نقل مكتبة الكاميرا للأسفل لعدم عرقلة الكود الأساسي -->
-  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-
+  <!-- 
+    1. الكود الأساسي موضوع هنا ليعمل قبل الكاميرا
+  -->
   <script>
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzLpM6e9VOr_i6UlEyPbu9_INgifhcGS-5dyY7LH-YSg91H6YXm0I8eoHAvTt9f9ZNZ/exec";
-    
     let timerInterval = null;
     let html5QrCode = null;
     let isCameraActive = false;
@@ -314,29 +152,44 @@
     let currentEmpName = "";
     let currentDeviceId = "";
 
-    // دالة مساعدة لتحديث العناصر بأمان لتجنب أي تعليق
+    // طباعة خطوات التشخيص
+    function dLog(msg) {
+      const dc = document.getElementById("debugConsole");
+      if(dc) dc.innerHTML += "<div>" + msg + "</div>";
+      console.log(msg);
+    }
+
     function safeSetText(id, text) {
       const el = document.getElementById(id);
       if (el) el.innerText = text;
     }
 
     function generateUniversalFingerprint() {
+      dLog("[2] بدء خوارزمية البصمة...");
       try {
-        let localUuid = localStorage.getItem("device_hw_token") || "";
-        if (!localUuid) {
-          localUuid = 'xxxx4xxx-yxxx'.replace(/[xy]/g, c => {
-            const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-            return v.toString(16);
-          });
-          localStorage.setItem("device_hw_token", localUuid);
+        let localUuid = "";
+        try {
+          dLog("[3] محاولة قراءة localStorage...");
+          localUuid = localStorage.getItem("device_hw_token") || "";
+          if (!localUuid) {
+            localUuid = 'HW-' + Math.floor(Math.random() * 1000000);
+            localStorage.setItem("device_hw_token", localUuid);
+          }
+          dLog("[3] localStorage نجح.");
+        } catch (e) {
+          dLog("[3] فشل localStorage: " + e.message);
+          localUuid = "TEMP-" + Math.floor(Math.random() * 1000000);
         }
 
+        dLog("[4] قراءة الشاشة والمعالج...");
         const dpr = window.devicePixelRatio || 1;
-        const w = Math.round(window.screen.width * dpr);
-        const h = Math.round(window.screen.height * dpr);
+        const w = window.screen ? Math.round(window.screen.width * dpr) : 0;
+        const h = window.screen ? Math.round(window.screen.height * dpr) : 0;
         const screenMetrics = Math.min(w, h) + "x" + Math.max(w, h);
-        const cpuCores = navigator.hardwareConcurrency || 4;
-        
+        const cpuCores = navigator.hardwareConcurrency || 2;
+        dLog("[4] الشاشة والمعالج نجح.");
+
+        dLog("[5] فحص معالج الرسوميات (WebGL)...");
         let gpuRenderer = "GPU";
         try {
           const glCanvas = document.createElement("canvas");
@@ -345,21 +198,31 @@
             const dbg = gl.getExtension("WEBGL_debug_renderer_info");
             if (dbg) gpuRenderer = gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || "GL";
           }
-        } catch (e) {}
+          dLog("[5] WebGL نجح.");
+        } catch (glErr) {
+          dLog("[5] فشل قراءة WebGL: تم التجاهل.");
+        }
 
+        dLog("[6] دمج وتشفير البيانات...");
         const rawSignature = [localUuid, screenMetrics, cpuCores, gpuRenderer].join("::");
         let hash = 0;
         for (let i = 0; i < rawSignature.length; i++) {
           hash = ((hash << 5) - hash) + rawSignature.charCodeAt(i);
           hash |= 0;
         }
-        return "HW-" + Math.abs(hash).toString(16).toUpperCase().padStart(8, '0');
+        
+        const finalHash = "HW-" + Math.abs(hash).toString(16).toUpperCase().padStart(8, '0');
+        dLog("[7] اكتملت البصمة: " + finalHash);
+        return finalHash;
+        
       } catch (err) {
-        return "HW-SAFE-" + Math.floor(100000 + Math.random() * 900000);
+        dLog("[!] خطأ قاتل في البصمة: " + err.message);
+        return "HW-ERR-" + Math.floor(Math.random() * 10000);
       }
     }
 
     function initApp() {
+      dLog("[8] بدء تطبيق الواجهة (initApp)...");
       currentDeviceId = generateUniversalFingerprint();
       safeSetText("deviceIdDisplay", currentDeviceId);
 
@@ -371,17 +234,30 @@
           currentEmpName = savedName;
           lockNameFieldPermanently(currentEmpName, currentEmpId);
           unlockActionButtons();
+          dLog("[9] تم استعادة حساب الموظف.");
+        } else {
+          dLog("[9] لم يتم العثور على حساب (مستخدم جديد).");
         }
-      } catch (e) {}
+      } catch (e) {
+        dLog("[9] فشل استعادة الحساب: " + e.message);
+      }
+      
       restoreWorkState();
+      
+      // إخفاء صندوق التشخيص بعد 5 ثواني إذا تم كل شيء بنجاح
+      setTimeout(() => {
+        const dc = document.getElementById("debugConsole");
+        if(dc && !dc.innerHTML.includes("[!]")) dc.style.display = "none";
+      }, 5000);
     }
 
-    // التنفيذ الفوري والآمن
+    // التنفيذ
     window.addEventListener("DOMContentLoaded", initApp);
     if (document.readyState === "complete" || document.readyState === "interactive") {
-      setTimeout(initApp, 10);
+      setTimeout(initApp, 100);
     }
 
+    // بقية الدوال دون تغيير ---------------------------------
     async function fetchPublicIp() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 2000);
@@ -390,9 +266,7 @@
         clearTimeout(timeoutId);
         const json = await response.json();
         return json.ip;
-      } catch (e) {
-        return "UNKNOWN_IP";
-      }
+      } catch (e) { return "UNKNOWN_IP"; }
     }
 
     function getGeoLocation() {
@@ -414,12 +288,7 @@
       const nameLabel = document.getElementById("empNameLabel");
       const regBtn = document.getElementById("registerBtn");
       const notice = document.getElementById("lockedNotice");
-
-      if (nameInput) {
-        nameInput.value = name;
-        nameInput.readOnly = true;
-        nameInput.classList.add("locked-input");
-      }
+      if (nameInput) { nameInput.value = name; nameInput.readOnly = true; nameInput.classList.add("locked-input"); }
       if (nameLabel) nameLabel.innerHTML = 'اسم الموظف المعتمد: <span style="color:#60a5fa;">🔒 (مقفل)</span>';
       safeSetText("empIdDisplay", id);
       if (regBtn) regBtn.style.display = "none";
@@ -428,75 +297,36 @@
 
     function showAlert(msg, type) {
       const b = document.getElementById("alertBox");
-      if (b) {
-        b.innerText = msg;
-        b.className = `alert alert-${type}`;
-        b.style.display = "block";
-      }
+      if (b) { b.innerText = msg; b.className = `alert alert-${type}`; b.style.display = "block"; }
     }
 
     async function handleInitialRegistration() {
       const nameInput = document.getElementById("empNameInput");
       const regBtn = document.getElementById("registerBtn");
       const name = nameInput ? nameInput.value.trim() : "";
-
-      if (!name) {
-        showAlert("يرجى إدخال اسمك الكامل أولاً", "error");
-        return;
-      }
-
+      if (!name) { showAlert("يرجى إدخال اسمك الكامل أولاً", "error"); return; }
       if (nameInput) nameInput.readOnly = true;
-      if (regBtn) {
-        regBtn.disabled = true;
-        regBtn.innerText = "⏳ جاري التثبيت في السيرفر...";
-      }
-
+      if (regBtn) { regBtn.disabled = true; regBtn.innerText = "⏳ جاري التثبيت في السيرفر..."; }
       const newEmpId = "EMP-" + Math.floor(100000 + Math.random() * 900000);
-
+      try { localStorage.setItem("emp_name", name); localStorage.setItem("emp_id", newEmpId); } catch (e) {}
+      currentEmpName = name; currentEmpId = newEmpId;
+      const payload = { action: "REGISTER_EMPLOYEE", employeeId: newEmpId, employeeName: name, deviceFingerprint: currentDeviceId };
       try {
-        localStorage.setItem("emp_name", name);
-        localStorage.setItem("emp_id", newEmpId);
-      } catch (e) {}
-
-      currentEmpName = name;
-      currentEmpId = newEmpId;
-
-      const payload = {
-        action: "REGISTER_EMPLOYEE",
-        employeeId: newEmpId,
-        employeeName: name,
-        deviceFingerprint: currentDeviceId
-      };
-
-      try {
-        const response = await fetch(SCRIPT_URL, {
-          method: "POST",
-          mode: "cors",
-          body: JSON.stringify(payload),
-          headers: { "Content-Type": "text/plain;charset=utf-8" }
-        });
+        const response = await fetch(SCRIPT_URL, { method: "POST", mode: "cors", body: JSON.stringify(payload), headers: { "Content-Type": "text/plain;charset=utf-8" } });
         const result = JSON.parse(await response.text());
-
         if (result.status === "SUCCESS") {
           lockNameFieldPermanently(currentEmpName, currentEmpId);
           unlockActionButtons();
           showAlert("🎉 تم تثبيت هويتك بنجاح!", "success");
         } else {
           showAlert("❌ " + result.message, "error");
-          localStorage.removeItem("emp_name");
-          localStorage.removeItem("emp_id");
+          localStorage.removeItem("emp_name"); localStorage.removeItem("emp_id");
           if (nameInput) nameInput.readOnly = false;
-          if (regBtn) {
-            regBtn.disabled = false;
-            regBtn.innerText = "🔒 تثبيت الحساب نهائياً على هذا الهاتف";
-          }
+          if (regBtn) { regBtn.disabled = false; regBtn.innerText = "🔒 تثبيت الحساب نهائياً على هذا الهاتف"; }
         }
       } catch (err) {
         showAlert("فشل إرسال البيانات للخادم", "error");
-        if (regBtn) {
-          regBtn.disabled = false;
-          regBtn.innerText = "🔄 إعادة محاولة التثبيت";
-        }
+        if (regBtn) { regBtn.disabled = false; regBtn.innerText = "🔄 إعادة محاولة التثبيت"; }
       }
     }
 
@@ -523,17 +353,12 @@
       if (dot) dot.classList.add("active");
       if (txt) txt.innerText = "داخل الدوام";
       if (timerInterval) clearInterval(timerInterval);
-
       const updateTimer = () => {
         const diff = Date.now() - startTime;
         const hours = Math.floor(diff / 3600000);
         const minutes = Math.floor((diff % 3600000) / 60000);
         const seconds = Math.floor((diff % 60000) / 1000);
-        safeSetText("timerDisplay", 
-          String(hours).padStart(2, '0') + ":" +
-          String(minutes).padStart(2, '0') + ":" +
-          String(seconds).padStart(2, '0')
-        );
+        safeSetText("timerDisplay", String(hours).padStart(2, '0') + ":" + String(minutes).padStart(2, '0') + ":" + String(seconds).padStart(2, '0'));
       };
       updateTimer();
       timerInterval = setInterval(updateTimer, 1000);
@@ -549,41 +374,24 @@
     }
 
     async function toggleCamera() {
-      if (isCameraActive) {
-        await stopCamera();
-        return;
-      }
-      if (typeof Html5Qrcode === "undefined") {
-        showAlert("جاري تحميل قارئ الكاميرا، يرجى المحاولة بعد قليل", "warning");
-        return;
-      }
-
+      if (isCameraActive) { await stopCamera(); return; }
+      if (typeof Html5Qrcode === "undefined") { showAlert("جاري تحميل قارئ الكاميرا، يرجى المحاولة بعد قليل", "warning"); return; }
       const readerBox = document.getElementById("reader-container");
       const btn = document.getElementById("scanBtn");
       if (readerBox) readerBox.style.display = "block";
       if (btn) { btn.innerText = "⏳ تشغيل الكاميرا..."; btn.disabled = true; }
-
       try {
         html5QrCode = new Html5Qrcode("reader");
         const devices = await Html5Qrcode.getCameras();
         let selectedId = devices && devices.length > 0 ? devices[devices.length - 1].id : null;
-        await html5QrCode.start(
-          selectedId ? selectedId : { facingMode: "environment" },
-          { fps: 10, qrbox: { width: 220, height: 220 } },
-          onScanSuccess, () => {}
-        );
+        await html5QrCode.start(selectedId ? selectedId : { facingMode: "environment" }, { fps: 10, qrbox: { width: 220, height: 220 } }, onScanSuccess, () => {});
         isCameraActive = true;
         if (btn) { btn.innerText = "🛑 إيقاف الكاميرا"; btn.className = "btn-danger"; btn.disabled = false; }
-      } catch (err) {
-        showAlert("خطأ الكاميرا: " + err.message, "error");
-        await stopCamera();
-      }
+      } catch (err) { showAlert("خطأ الكاميرا: " + err.message, "error"); await stopCamera(); }
     }
 
     async function stopCamera() {
-      if (html5QrCode && isCameraActive) {
-        try { await html5QrCode.stop(); html5QrCode.clear(); } catch (e) {}
-      }
+      if (html5QrCode && isCameraActive) { try { await html5QrCode.stop(); html5QrCode.clear(); } catch (e) {} }
       isCameraActive = false;
       const readerBox = document.getElementById("reader-container");
       const btn = document.getElementById("scanBtn");
@@ -591,11 +399,7 @@
       if (btn) { btn.innerText = "📷 تشغيل الكاميرا لمسح الرمز"; btn.className = "btn-primary"; btn.disabled = false; }
     }
 
-    async function onScanSuccess(decodedText) {
-      await stopCamera();
-      processAttendanceRequest(decodedText);
-    }
-
+    async function onScanSuccess(decodedText) { await stopCamera(); processAttendanceRequest(decodedText); }
     function handleManualQrSubmit() {
       const input = document.getElementById("manualQrInput");
       const code = input ? input.value.trim() : "";
@@ -607,21 +411,7 @@
       safeSetText("scannedResultText", qrText);
       const box = document.getElementById("scannedResultBox");
       if (box) box.style.display = "block";
-
       showAlert("⏳ جاري التحقق من الموقع والشبكة وبصمة الهاتف...", "warning");
-
       let coords = null;
       try { coords = await getGeoLocation(); } 
-      catch (locErr) { showAlert("فشل فحص الموقع: " + locErr.message, "error"); return; }
-
-      const clientIp = await fetchPublicIp();
-      const payload = {
-        action: "RECORD_ATTENDANCE", employeeId: currentEmpId, employeeName: currentEmpName,
-        deviceFingerprint: currentDeviceId, latitude: coords.lat, longitude: coords.lng,
-        clientIp: clientIp, qrData: qrText, timestamp: new Date().toISOString()
-      };
-
-      try {
-        const response = await fetch(SCRIPT_URL, {
-          method: "POST", mode: "cors",
-          body: JSON.stringify(payload), headers: { "Content-Type": "text/pla
+      cat
