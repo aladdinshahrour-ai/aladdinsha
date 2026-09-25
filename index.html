@@ -86,6 +86,7 @@
       border-color: var(--accent);
     }
 
+    /* مظهر الحقل عند قفله بعد التسجيل */
     input.locked-input {
       background-color: #0b1120 !important;
       border-color: #1e40af !important;
@@ -270,7 +271,7 @@
         </div>
         <div class="meta-item">
           <span>بصمة العتاد (Hardware):</span>
-          <span class="meta-val" id="deviceIdDisplay" style="font-size: 0.75rem;">جاري القراءة...</span>
+          <span class="meta-val" id="deviceIdDisplay" style="font-size: 0.75rem;">---</span>
         </div>
       </div>
 
@@ -335,9 +336,10 @@
   </div>
 
   <script>
-    // الرابط المعتمد الجديد
+    // الرابط المعتمد الجديد لـ Google Apps Script
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzLpM6e9VOr_i6UlEyPbu9_INgifhcGS-5dyY7LH-YSg91H6YXm0I8eoHAvTt9f9ZNZ/exec";
 
+    // عناصر واجهة المستخدم
     const empNameInput = document.getElementById("empNameInput");
     const empNameLabel = document.getElementById("empNameLabel");
     const registerBtn = document.getElementById("registerBtn");
@@ -361,54 +363,87 @@
     let isCameraActive = false;
     let currentEmpId = "";
     let currentEmpName = "";
-    let currentDeviceId = "";
 
-    // 1. خوارزمية فورية ومتزامنة للبصمة العتادية (تعمل في أقل من 0.01 ثانية)
-    function generateFastHardwareFingerprint() {
+    // ========================================================
+    // 1. خوارزمية البصمة الهجينة الفورية (محصنة ضد قلب الشاشة والتعليق)
+    // ========================================================
+    function generateUniversalFingerprint() {
       try {
-        const canvas = document.createElement('canvas');
-        canvas.width = 200;
-        canvas.height = 40;
-        const ctx = canvas.getContext('2d');
-        ctx.textBaseline = "top";
-        ctx.font = "14px Arial";
-        ctx.fillStyle = "#f60";
-        ctx.fillRect(100, 1, 50, 15);
-        ctx.fillStyle = "#069";
-        ctx.fillText("Office_HW_Security", 2, 10);
-        const canvasData = canvas.toDataURL();
-
-        const str = [
-          canvasData,
-          screen.width + "x" + screen.height,
-          screen.colorDepth,
-          navigator.hardwareConcurrency || 4,
-          navigator.maxTouchPoints || 0,
-          Intl.DateTimeFormat().resolvedOptions().timeZone || ""
-        ].join("-");
-
-        // FNV-1a Hashing
-        let hash = 2166136261;
-        for (let i = 0; i < str.length; i++) {
-          hash ^= str.charCodeAt(i);
-          hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+        let localUuid = "";
+        try {
+          localUuid = localStorage.getItem("device_hw_token") || "";
+          if (!localUuid) {
+            localUuid = 'xxxx4xxx-yxxx'.replace(/[xy]/g, function(c) {
+              const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+              return v.toString(16);
+            });
+            localStorage.setItem("device_hw_token", localUuid);
+          }
+        } catch (e) {
+          localUuid = "SESSION-" + Math.floor(Math.random() * 1000000);
         }
-        return "HW-" + (hash >>> 0).toString(16).toUpperCase();
-      } catch (e) {
-        return "HW-" + Math.floor(10000000 + Math.random() * 90000000);
+
+        // تثبيت الأبعاد دائماً (الأصغر x الأكبر) لتبقى ثابتة عند تدوير الهاتف
+        const dpr = window.devicePixelRatio || 1;
+        const w = Math.round(window.screen.width * dpr);
+        const h = Math.round(window.screen.height * dpr);
+        const screenMetrics = Math.min(w, h) + "x" + Math.max(w, h);
+
+        const cpuCores = navigator.hardwareConcurrency || 4;
+        const touchPoints = navigator.maxTouchPoints || 1;
+
+        // قراءة كرت الشاشة GPU عبر WebGL الآمن
+        let gpuRenderer = "GPU";
+        try {
+          const glCanvas = document.createElement("canvas");
+          const gl = glCanvas.getContext("webgl") || glCanvas.getContext("experimental-webgl");
+          if (gl) {
+            const dbg = gl.getExtension("WEBGL_debug_renderer_info");
+            if (dbg) {
+              gpuRenderer = gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || "GL";
+            }
+          }
+        } catch (glErr) {
+          gpuRenderer = "STANDARD";
+        }
+
+        // دمج الخصائص وتوليد التجزئة (Hash) الفورية
+        const rawSignature = [localUuid, screenMetrics, cpuCores, touchPoints, gpuRenderer].join("::");
+        let hash = 0;
+        for (let i = 0; i < rawSignature.length; i++) {
+          hash = ((hash << 5) - hash) + rawSignature.charCodeAt(i);
+          hash |= 0;
+        }
+
+        return "HW-" + Math.abs(hash).toString(16).toUpperCase().padStart(8, '0');
+      } catch (err) {
+        return "HW-SAFE-" + Math.floor(100000 + Math.random() * 900000);
       }
     }
 
+    // توليد وعرض البصمة فوراً في أول لحظة
+    const currentDeviceId = generateUniversalFingerprint();
+    deviceIdDisplay.innerText = currentDeviceId;
+
+    // ========================================================
+    // 2. جلب IP الراوتر بمهلة إجبارية ثانيتين لعدم تعليق الشاشة
+    // ========================================================
     async function fetchPublicIp() {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
       try {
-        const response = await fetch("https://api.ipify.org?format=json");
+        const response = await fetch("https://api.ipify.org?format=json", { signal: controller.signal });
+        clearTimeout(timeoutId);
         const json = await response.json();
         return json.ip;
       } catch (e) {
-        return "UNKNOWN_IP";
+        return "UNKNOWN_OR_TIMEOUT";
       }
     }
 
+    // ========================================================
+    // 3. قراءة الموقع الجغرافي (GPS) مهيأة للأماكن المغلقة والمكاتب
+    // ========================================================
     function getGeoLocation() {
       return new Promise((resolve, reject) => {
         if (!navigator.geolocation) {
@@ -416,38 +451,33 @@
         } else {
           navigator.geolocation.getCurrentPosition(
             pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-            err => reject(new Error("يرجى تفعيل الـ GPS والسماح بالوصول للموقع")),
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            err => reject(new Error("يرجى تفعيل الـ GPS والسماح للمتصفح بالوصول للموقع")),
+            { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
           );
         }
       });
     }
 
-    // 2. تشغيل فوري بدون انتظار لتفادي أي بطء في الهواتف
-    function initApp() {
-      currentDeviceId = generateFastHardwareFingerprint();
-      deviceIdDisplay.innerText = currentDeviceId;
+    // ========================================================
+    // 4. استرجاع حالة الموظف عند بدء التشغيل
+    // ========================================================
+    function initAppState() {
+      try {
+        const savedId = localStorage.getItem("emp_id");
+        const savedName = localStorage.getItem("emp_name");
 
-      const savedId = localStorage.getItem("emp_id");
-      const savedName = localStorage.getItem("emp_name");
-
-      if (savedId && savedName) {
-        currentEmpId = savedId;
-        currentEmpName = savedName;
-        lockNameFieldPermanently(currentEmpName, currentEmpId);
-        unlockActionButtons();
-      }
+        if (savedId && savedName) {
+          currentEmpId = savedId;
+          currentEmpName = savedName;
+          lockNameFieldPermanently(currentEmpName, currentEmpId);
+          unlockActionButtons();
+        }
+      } catch (e) {}
 
       restoreWorkState();
     }
+    initAppState();
 
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", initApp);
-    } else {
-      initApp();
-    }
-
-    // 3. قفل حقل الاسم نهائياً
     function lockNameFieldPermanently(name, id) {
       empNameInput.value = name;
       empNameInput.readOnly = true;
@@ -459,7 +489,9 @@
       lockedNotice.style.display = "block";
     }
 
-    // 4. تثبيت الحساب لأول مرة وحفظه في صفحة الموظفين
+    // ========================================================
+    // 5. تثبيت هوية الموظف لأول مرة في صفحة Employees
+    // ========================================================
     async function handleInitialRegistration() {
       const name = empNameInput.value.trim();
 
@@ -474,9 +506,11 @@
 
       const newEmpId = "EMP-" + Math.floor(100000 + Math.random() * 900000);
 
-      // حفظ فوري في الكاش
-      localStorage.setItem("emp_name", name);
-      localStorage.setItem("emp_id", newEmpId);
+      try {
+        localStorage.setItem("emp_name", name);
+        localStorage.setItem("emp_id", newEmpId);
+      } catch (e) {}
+
       currentEmpName = name;
       currentEmpId = newEmpId;
 
@@ -505,8 +539,10 @@
           showAlert("🎉 تم تثبيت هويتك بنجاح في صفحة الموظفين!", "success");
         } else {
           showAlert("❌ " + result.message, "error");
-          localStorage.removeItem("emp_name");
-          localStorage.removeItem("emp_id");
+          try {
+            localStorage.removeItem("emp_name");
+            localStorage.removeItem("emp_id");
+          } catch(e){}
           empNameInput.readOnly = false;
           registerBtn.disabled = false;
           registerBtn.innerText = "🔒 تثبيت الحساب نهائياً على هذا الهاتف";
@@ -524,13 +560,18 @@
       lockWarning.style.display = "none";
     }
 
+    // ========================================================
+    // 6. إدارة التايمر وحالة الحضور
+    // ========================================================
     function restoreWorkState() {
-      const checkInTime = localStorage.getItem("check_in_time");
-      if (checkInTime) {
-        setWorkActive(parseInt(checkInTime, 10));
-      } else {
-        setWorkInactive();
-      }
+      try {
+        const checkInTime = localStorage.getItem("check_in_time");
+        if (checkInTime) {
+          setWorkActive(parseInt(checkInTime, 10));
+        } else {
+          setWorkInactive();
+        }
+      } catch(e){}
     }
 
     function setWorkActive(startTime) {
@@ -565,6 +606,9 @@
       scannedResultBox.style.display = "block";
     }
 
+    // ========================================================
+    // 7. قارئ الكاميرا والإدخال اليدوي
+    // ========================================================
     async function toggleCamera() {
       if (isCameraActive) {
         await stopCamera();
@@ -602,76 +646,4 @@
       if (html5QrCode && isCameraActive) {
         try {
           await html5QrCode.stop();
-          html5QrCode.clear();
-        } catch (e) {}
-      }
-      isCameraActive = false;
-      readerContainer.style.display = "none";
-      scanBtn.innerText = "📷 تشغيل الكاميرا لمسح الرمز";
-      scanBtn.className = "btn-primary";
-      scanBtn.disabled = false;
-    }
-
-    async function onScanSuccess(decodedText) {
-      await stopCamera();
-      processAttendanceRequest(decodedText);
-    }
-
-    function handleManualQrSubmit() {
-      const code = manualQrInput.value.trim();
-      if (!code) {
-        showAlert("يرجى إدخال كود الـ QR", "warning");
-        return;
-      }
-      processAttendanceRequest(code);
-    }
-
-    async function processAttendanceRequest(qrText) {
-      displayProcessedQr(qrText);
-      showAlert("⏳ جاري التحقق من الموقع والشبكة وبصمة الهاتف...", "warning");
-
-      let coords = null;
-      try {
-        coords = await getGeoLocation();
-      } catch (locErr) {
-        showAlert("فشل فحص الموقع: " + locErr.message, "error");
-        return;
-      }
-
-      const clientIp = await fetchPublicIp();
-
-      const payload = {
-        action: "RECORD_ATTENDANCE",
-        employeeId: currentEmpId,
-        employeeName: currentEmpName,
-        deviceFingerprint: currentDeviceId,
-        latitude: coords.lat,
-        longitude: coords.lng,
-        clientIp: clientIp,
-        qrData: qrText,
-        timestamp: new Date().toISOString()
-      };
-
-      try {
-        const response = await fetch(SCRIPT_URL, {
-          method: "POST",
-          mode: "cors",
-          redirect: "follow",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify(payload)
-        });
-
-        const responseText = await response.text();
-        const result = JSON.parse(responseText);
-
-        if (result.status === "SUCCESS") {
-          if (result.action === "CHECK_IN") {
-            const now = Date.now();
-            localStorage.setItem("check_in_time", now.toString());
-            setWorkActive(now);
-            showAlert(`تم تسجيل الدخول بنجاح! مرحباً ${currentEmpName}`, "success");
-          } else if (result.action === "CHECK_OUT") {
-            localStorage.removeItem("check_in_time");
-            setWorkInactive();
-            showAlert(`تم تسجيل الانصراف! ساعات العمل: ${result.totalHours} ساعة.`, "success");
-        
+          html5Q
