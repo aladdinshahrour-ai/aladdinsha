@@ -5,9 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>نظام الحضور والانصراف الموثوق</title>
   
-  <!-- مكتبة الكاميرا مع وضع defer لعدم تعطيل السكربت الرئيسي -->
-  <script defer src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-
   <style>
     :root {
       --bg: #0f172a;
@@ -17,7 +14,6 @@
       --accent: #3b82f6;
       --success: #22c55e;
       --danger: #ef4444;
-      --warning: #f59e0b;
       --border: #334155;
     }
 
@@ -82,10 +78,7 @@
       transition: all 0.2s;
     }
 
-    input:focus {
-      border-color: var(--accent);
-    }
-
+    input:focus { border-color: var(--accent); }
     input.locked-input {
       background-color: #0b1120 !important;
       border-color: #1e40af !important;
@@ -144,7 +137,6 @@
       background-color: #64748b;
       transition: all 0.3s ease;
     }
-
     .status-dot.active {
       background-color: var(--success);
       box-shadow: 0 0 14px var(--success);
@@ -166,10 +158,7 @@
       border: 1px solid var(--border);
       display: none;
     }
-
-    #reader {
-      width: 100% !important;
-    }
+    #reader { width: 100% !important; }
 
     .divider {
       display: flex;
@@ -179,14 +168,11 @@
       color: var(--text-muted);
       font-size: 0.8rem;
     }
-
-    .divider::before,
-    .divider::after {
+    .divider::before, .divider::after {
       content: '';
       flex: 1;
       border-bottom: 1px solid var(--border);
     }
-
     .divider:not(:empty)::before { margin-left: .5em; }
     .divider:not(:empty)::after { margin-right: .5em; }
 
@@ -198,14 +184,12 @@
       margin-top: 10px;
       display: none;
     }
-
     .scanned-result-title {
       font-size: 0.8rem;
       color: var(--accent);
       font-weight: bold;
       margin-bottom: 4px;
     }
-
     .scanned-result-text {
       font-family: monospace;
       font-size: 0.8rem;
@@ -228,8 +212,8 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
+      transition: opacity 0.2s;
     }
-
     button:disabled {
       opacity: 0.5;
       cursor: not-allowed;
@@ -248,7 +232,6 @@
       word-break: break-word;
       display: none;
     }
-
     .alert-success { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid #22c55e; }
     .alert-error { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid #ef4444; }
     .alert-warning { background: rgba(234, 179, 8, 0.15); color: #facc15; border: 1px solid #eab308; }
@@ -257,11 +240,8 @@
 <body>
 
   <div class="container">
-
-    <!-- بطاقة الهوية -->
     <div class="card" id="identityCard">
       <h1>بيانات هوية الموظف</h1>
-
       <div class="meta-box">
         <div class="meta-item">
           <span>معرّف الموظف (ID):</span>
@@ -269,25 +249,21 @@
         </div>
         <div class="meta-item">
           <span>بصمة العتاد (Hardware):</span>
-          <span class="meta-val" id="deviceIdDisplay" style="font-size: 0.75rem;">جاري القراءة...</span>
+          <span class="meta-val" id="deviceIdDisplay" style="font-size: 0.75rem;">جاري المعالجة...</span>
         </div>
       </div>
-
       <div class="form-group">
         <label for="empNameInput" id="empNameLabel">الاسم الكامل للموظف (يُدخل لمرة واحدة):</label>
         <input type="text" id="empNameInput" placeholder="أدخل اسمك الكامل هنا..." autocomplete="off">
       </div>
-
       <button type="button" class="btn-submit" id="registerBtn" onclick="handleInitialRegistration()">
         🔒 تثبيت الحساب نهائياً على هذا الهاتف
       </button>
-
       <div id="lockedNotice" style="display: none; font-size: 0.8rem; color: #4ade80; text-align: center; margin-top: 8px;">
         ✓ تم توثيق وتثبيت هويتك على هذا الجهاز بنجاح
       </div>
     </div>
 
-    <!-- لوحة التايمر -->
     <div class="card status-panel">
       <div class="status-badge">
         <span class="status-dot" id="statusDot"></span>
@@ -298,55 +274,39 @@
 
     <div id="alertBox" class="alert"></div>
 
-    <!-- الحضور والانصراف -->
     <div class="card">
       <h2 style="font-size: 0.95rem; margin-bottom: 12px; text-align: center; color: var(--text-muted);">
         تسجيل الحضور / الانصراف
       </h2>
-
       <div id="reader-container">
         <div id="reader"></div>
       </div>
-      
       <button id="scanBtn" class="btn-primary" onclick="toggleCamera()" disabled>
         📷 تشغيل الكاميرا لمسح الرمز
       </button>
-
       <div class="divider">أو إدخال الرمز يدوياً</div>
-
       <div class="form-group" style="margin-bottom: 8px;">
         <input type="text" id="manualQrInput" placeholder="أدخل كود الـ QR المعتمد" dir="ltr" style="text-align: left;">
       </div>
-
       <button id="manualSubmitBtn" class="btn-success" onclick="handleManualQrSubmit()" disabled>
         ✍️ تأكيد الحضور بالكود
       </button>
-
       <div id="scannedResultBox" class="scanned-result-box">
         <div class="scanned-result-title">🔍 الرمز المعتمد:</div>
         <div id="scannedResultText" class="scanned-result-text">---</div>
       </div>
-
       <div id="lockWarning" style="font-size: 0.8rem; color: var(--text-muted); text-align: center; margin-top: 10px;">
         (يرجى تثبيت الاسم في الأعلى أولاً لتفعيل خيارات التسجيل)
       </div>
     </div>
   </div>
 
+  <!-- تم نقل مكتبة الكاميرا للأسفل لعدم عرقلة الكود الأساسي -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
   <script>
-    // نظام اصطياد الأخطاء لإظهار أي عطل مباشرة على شاشة الهاتف
-    window.onerror = function(msg, url, line) {
-      const b = document.getElementById("alertBox");
-      if (b) {
-        b.style.display = "block";
-        b.className = "alert alert-error";
-        b.innerText = "خطأ تشغيلي (" + line + "): " + msg;
-      }
-      return false;
-    };
-
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzLpM6e9VOr_i6UlEyPbu9_INgifhcGS-5dyY7LH-YSg91H6YXm0I8eoHAvTt9f9ZNZ/exec";
-
+    
     let timerInterval = null;
     let html5QrCode = null;
     let isCameraActive = false;
@@ -354,27 +314,21 @@
     let currentEmpName = "";
     let currentDeviceId = "";
 
-    // دالة مساعدة لتحديث نصوص العناصر بأمان تام
-    function safeSetText(elemId, text) {
-      const el = document.getElementById(elemId);
+    // دالة مساعدة لتحديث العناصر بأمان لتجنب أي تعليق
+    function safeSetText(id, text) {
+      const el = document.getElementById(id);
       if (el) el.innerText = text;
     }
 
-    // توليد البصمة فوراً عبر خصائص العتاد والشاشة والـ GPU
     function generateUniversalFingerprint() {
       try {
-        let localUuid = "";
-        try {
-          localUuid = localStorage.getItem("device_hw_token") || "";
-          if (!localUuid) {
-            localUuid = 'xxxx4xxx-yxxx'.replace(/[xy]/g, function(c) {
-              const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-              return v.toString(16);
-            });
-            localStorage.setItem("device_hw_token", localUuid);
-          }
-        } catch (e) {
-          localUuid = "CLIENT-" + Math.floor(Math.random() * 1000000);
+        let localUuid = localStorage.getItem("device_hw_token") || "";
+        if (!localUuid) {
+          localUuid = 'xxxx4xxx-yxxx'.replace(/[xy]/g, c => {
+            const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+          });
+          localStorage.setItem("device_hw_token", localUuid);
         }
 
         const dpr = window.devicePixelRatio || 1;
@@ -382,44 +336,36 @@
         const h = Math.round(window.screen.height * dpr);
         const screenMetrics = Math.min(w, h) + "x" + Math.max(w, h);
         const cpuCores = navigator.hardwareConcurrency || 4;
-        const touchPoints = navigator.maxTouchPoints || 1;
-
+        
         let gpuRenderer = "GPU";
         try {
           const glCanvas = document.createElement("canvas");
           const gl = glCanvas.getContext("webgl") || glCanvas.getContext("experimental-webgl");
           if (gl) {
             const dbg = gl.getExtension("WEBGL_debug_renderer_info");
-            if (dbg) {
-              gpuRenderer = gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || "GL";
-            }
+            if (dbg) gpuRenderer = gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || "GL";
           }
-        } catch (glErr) {
-          gpuRenderer = "STANDARD";
-        }
+        } catch (e) {}
 
-        const rawSignature = [localUuid, screenMetrics, cpuCores, touchPoints, gpuRenderer].join("::");
+        const rawSignature = [localUuid, screenMetrics, cpuCores, gpuRenderer].join("::");
         let hash = 0;
         for (let i = 0; i < rawSignature.length; i++) {
           hash = ((hash << 5) - hash) + rawSignature.charCodeAt(i);
           hash |= 0;
         }
-
         return "HW-" + Math.abs(hash).toString(16).toUpperCase().padStart(8, '0');
       } catch (err) {
-        return "HW-" + Math.floor(10000000 + Math.random() * 90000000);
+        return "HW-SAFE-" + Math.floor(100000 + Math.random() * 900000);
       }
     }
 
-    // تشغيل فوري ومضمون لضبط الواجهة
-    function bootstrapApp() {
+    function initApp() {
       currentDeviceId = generateUniversalFingerprint();
       safeSetText("deviceIdDisplay", currentDeviceId);
 
       try {
         const savedId = localStorage.getItem("emp_id");
         const savedName = localStorage.getItem("emp_name");
-
         if (savedId && savedName) {
           currentEmpId = savedId;
           currentEmpName = savedName;
@@ -427,15 +373,13 @@
           unlockActionButtons();
         }
       } catch (e) {}
-
       restoreWorkState();
     }
 
-    // التحقق من حالة التحميل للبدء فوراً
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", bootstrapApp);
-    } else {
-      bootstrapApp();
+    // التنفيذ الفوري والآمن
+    window.addEventListener("DOMContentLoaded", initApp);
+    if (document.readyState === "complete" || document.readyState === "interactive") {
+      setTimeout(initApp, 10);
     }
 
     async function fetchPublicIp() {
@@ -454,7 +398,7 @@
     function getGeoLocation() {
       return new Promise((resolve, reject) => {
         if (!navigator.geolocation) {
-          reject(new Error("المتصفح لا يدعم تحديد الموقع الجغرافي GPS"));
+          reject(new Error("المتصفح لا يدعم تحديد الموقع (GPS)"));
         } else {
           navigator.geolocation.getCurrentPosition(
             pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
@@ -476,12 +420,19 @@
         nameInput.readOnly = true;
         nameInput.classList.add("locked-input");
       }
-      if (nameLabel) {
-        nameLabel.innerHTML = 'اسم الموظف المعتمد: <span style="color:#60a5fa;">🔒 (مقفل)</span>';
-      }
+      if (nameLabel) nameLabel.innerHTML = 'اسم الموظف المعتمد: <span style="color:#60a5fa;">🔒 (مقفل)</span>';
       safeSetText("empIdDisplay", id);
       if (regBtn) regBtn.style.display = "none";
       if (notice) notice.style.display = "block";
+    }
+
+    function showAlert(msg, type) {
+      const b = document.getElementById("alertBox");
+      if (b) {
+        b.innerText = msg;
+        b.className = `alert alert-${type}`;
+        b.style.display = "block";
+      }
     }
 
     async function handleInitialRegistration() {
@@ -497,7 +448,7 @@
       if (nameInput) nameInput.readOnly = true;
       if (regBtn) {
         regBtn.disabled = true;
-        regBtn.innerText = "⏳ جاري تثبيت الحساب في قاعدة البيانات...";
+        regBtn.innerText = "⏳ جاري التثبيت في السيرفر...";
       }
 
       const newEmpId = "EMP-" + Math.floor(100000 + Math.random() * 900000);
@@ -521,24 +472,19 @@
         const response = await fetch(SCRIPT_URL, {
           method: "POST",
           mode: "cors",
-          redirect: "follow",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
+          headers: { "Content-Type": "text/plain;charset=utf-8" }
         });
-
-        const responseText = await response.text();
-        const result = JSON.parse(responseText);
+        const result = JSON.parse(await response.text());
 
         if (result.status === "SUCCESS") {
           lockNameFieldPermanently(currentEmpName, currentEmpId);
           unlockActionButtons();
-          showAlert("🎉 تم تثبيت هويتك بنجاح في صفحة الموظفين!", "success");
+          showAlert("🎉 تم تثبيت هويتك بنجاح!", "success");
         } else {
           showAlert("❌ " + result.message, "error");
-          try {
-            localStorage.removeItem("emp_name");
-            localStorage.removeItem("emp_id");
-          } catch(e){}
+          localStorage.removeItem("emp_name");
+          localStorage.removeItem("emp_id");
           if (nameInput) nameInput.readOnly = false;
           if (regBtn) {
             regBtn.disabled = false;
@@ -546,7 +492,7 @@
           }
         }
       } catch (err) {
-        showAlert("فشل إرسال البيانات للخادم: " + err.message, "error");
+        showAlert("فشل إرسال البيانات للخادم", "error");
         if (regBtn) {
           regBtn.disabled = false;
           regBtn.innerText = "🔄 إعادة محاولة التثبيت";
@@ -566,11 +512,8 @@
     function restoreWorkState() {
       try {
         const checkInTime = localStorage.getItem("check_in_time");
-        if (checkInTime) {
-          setWorkActive(parseInt(checkInTime, 10));
-        } else {
-          setWorkInactive();
-        }
+        if (checkInTime) setWorkActive(parseInt(checkInTime, 10));
+        else setWorkInactive();
       } catch(e){}
     }
 
@@ -579,7 +522,6 @@
       const txt = document.getElementById("statusText");
       if (dot) dot.classList.add("active");
       if (txt) txt.innerText = "داخل الدوام";
-
       if (timerInterval) clearInterval(timerInterval);
 
       const updateTimer = () => {
@@ -593,7 +535,6 @@
           String(seconds).padStart(2, '0')
         );
       };
-
       updateTimer();
       timerInterval = setInterval(updateTimer, 1000);
     }
@@ -607,50 +548,32 @@
       safeSetText("timerDisplay", "00:00:00");
     }
 
-    function displayProcessedQr(text) {
-      safeSetText("scannedResultText", text);
-      const box = document.getElementById("scannedResultBox");
-      if (box) box.style.display = "block";
-    }
-
     async function toggleCamera() {
       if (isCameraActive) {
         await stopCamera();
         return;
       }
-
       if (typeof Html5Qrcode === "undefined") {
-        showAlert("جاري تحميل قارئ الكاميرا، يرجى المحاولة بعد قليل أو الإدخال اليدوي", "warning");
+        showAlert("جاري تحميل قارئ الكاميرا، يرجى المحاولة بعد قليل", "warning");
         return;
       }
 
       const readerBox = document.getElementById("reader-container");
       const btn = document.getElementById("scanBtn");
       if (readerBox) readerBox.style.display = "block";
-      if (btn) {
-        btn.innerText = "⏳ تشغيل الكاميرا...";
-        btn.disabled = true;
-      }
+      if (btn) { btn.innerText = "⏳ تشغيل الكاميرا..."; btn.disabled = true; }
 
       try {
         html5QrCode = new Html5Qrcode("reader");
         const devices = await Html5Qrcode.getCameras();
         let selectedId = devices && devices.length > 0 ? devices[devices.length - 1].id : null;
-        const config = selectedId ? selectedId : { facingMode: "environment" };
-
         await html5QrCode.start(
-          config,
+          selectedId ? selectedId : { facingMode: "environment" },
           { fps: 10, qrbox: { width: 220, height: 220 } },
-          onScanSuccess,
-          () => {}
+          onScanSuccess, () => {}
         );
-
         isCameraActive = true;
-        if (btn) {
-          btn.innerText = "🛑 إيقاف الكاميرا";
-          btn.className = "btn-danger";
-          btn.disabled = false;
-        }
+        if (btn) { btn.innerText = "🛑 إيقاف الكاميرا"; btn.className = "btn-danger"; btn.disabled = false; }
       } catch (err) {
         showAlert("خطأ الكاميرا: " + err.message, "error");
         await stopCamera();
@@ -659,22 +582,46 @@
 
     async function stopCamera() {
       if (html5QrCode && isCameraActive) {
-        try {
-          await html5QrCode.stop();
-          html5QrCode.clear();
-        } catch (e) {}
+        try { await html5QrCode.stop(); html5QrCode.clear(); } catch (e) {}
       }
       isCameraActive = false;
       const readerBox = document.getElementById("reader-container");
       const btn = document.getElementById("scanBtn");
       if (readerBox) readerBox.style.display = "none";
-      if (btn) {
-        btn.innerText = "📷 تشغيل الكاميرا لمسح الرمز";
-        btn.className = "btn-primary";
-        btn.disabled = false;
-      }
+      if (btn) { btn.innerText = "📷 تشغيل الكاميرا لمسح الرمز"; btn.className = "btn-primary"; btn.disabled = false; }
     }
 
     async function onScanSuccess(decodedText) {
       await stopCamera();
-      processAttendanceRequest(decodedText
+      processAttendanceRequest(decodedText);
+    }
+
+    function handleManualQrSubmit() {
+      const input = document.getElementById("manualQrInput");
+      const code = input ? input.value.trim() : "";
+      if (!code) { showAlert("يرجى إدخال كود الـ QR", "warning"); return; }
+      processAttendanceRequest(code);
+    }
+
+    async function processAttendanceRequest(qrText) {
+      safeSetText("scannedResultText", qrText);
+      const box = document.getElementById("scannedResultBox");
+      if (box) box.style.display = "block";
+
+      showAlert("⏳ جاري التحقق من الموقع والشبكة وبصمة الهاتف...", "warning");
+
+      let coords = null;
+      try { coords = await getGeoLocation(); } 
+      catch (locErr) { showAlert("فشل فحص الموقع: " + locErr.message, "error"); return; }
+
+      const clientIp = await fetchPublicIp();
+      const payload = {
+        action: "RECORD_ATTENDANCE", employeeId: currentEmpId, employeeName: currentEmpName,
+        deviceFingerprint: currentDeviceId, latitude: coords.lat, longitude: coords.lng,
+        clientIp: clientIp, qrData: qrText, timestamp: new Date().toISOString()
+      };
+
+      try {
+        const response = await fetch(SCRIPT_URL, {
+          method: "POST", mode: "cors",
+          body: JSON.stringify(payload), headers: { "Content-Type": "text/pla
