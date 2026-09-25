@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>نظام الحضور والانصراف الموثوق</title>
   
-  <!-- مكتبة قراءة QR Code عبر الكاميرا -->
-  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <!-- مكتبة الكاميرا مع وضع defer لعدم تعطيل السكربت الرئيسي -->
+  <script defer src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
   <style>
     :root {
@@ -86,7 +86,6 @@
       border-color: var(--accent);
     }
 
-    /* مظهر الحقل عند قفله بعد التسجيل */
     input.locked-input {
       background-color: #0b1120 !important;
       border-color: #1e40af !important;
@@ -229,7 +228,6 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
-      transition: opacity 0.2s;
     }
 
     button:disabled {
@@ -260,7 +258,7 @@
 
   <div class="container">
 
-    <!-- بطاقة هوية الموظف والعتاد -->
+    <!-- بطاقة الهوية -->
     <div class="card" id="identityCard">
       <h1>بيانات هوية الموظف</h1>
 
@@ -271,7 +269,7 @@
         </div>
         <div class="meta-item">
           <span>بصمة العتاد (Hardware):</span>
-          <span class="meta-val" id="deviceIdDisplay" style="font-size: 0.75rem;">---</span>
+          <span class="meta-val" id="deviceIdDisplay" style="font-size: 0.75rem;">جاري القراءة...</span>
         </div>
       </div>
 
@@ -289,7 +287,7 @@
       </div>
     </div>
 
-    <!-- لوحة التايمر وحالة الدوام -->
+    <!-- لوحة التايمر -->
     <div class="card status-panel">
       <div class="status-badge">
         <span class="status-dot" id="statusDot"></span>
@@ -300,7 +298,7 @@
 
     <div id="alertBox" class="alert"></div>
 
-    <!-- بطاقة تسجيل الحضور والانصراف -->
+    <!-- الحضور والانصراف -->
     <div class="card">
       <h2 style="font-size: 0.95rem; margin-bottom: 12px; text-align: center; color: var(--text-muted);">
         تسجيل الحضور / الانصراف
@@ -336,37 +334,33 @@
   </div>
 
   <script>
-    // الرابط المعتمد الجديد لـ Google Apps Script
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzLpM6e9VOr_i6UlEyPbu9_INgifhcGS-5dyY7LH-YSg91H6YXm0I8eoHAvTt9f9ZNZ/exec";
+    // نظام اصطياد الأخطاء لإظهار أي عطل مباشرة على شاشة الهاتف
+    window.onerror = function(msg, url, line) {
+      const b = document.getElementById("alertBox");
+      if (b) {
+        b.style.display = "block";
+        b.className = "alert alert-error";
+        b.innerText = "خطأ تشغيلي (" + line + "): " + msg;
+      }
+      return false;
+    };
 
-    // عناصر واجهة المستخدم
-    const empNameInput = document.getElementById("empNameInput");
-    const empNameLabel = document.getElementById("empNameLabel");
-    const registerBtn = document.getElementById("registerBtn");
-    const lockedNotice = document.getElementById("lockedNotice");
-    const empIdDisplay = document.getElementById("empIdDisplay");
-    const deviceIdDisplay = document.getElementById("deviceIdDisplay");
-    const manualQrInput = document.getElementById("manualQrInput");
-    const manualSubmitBtn = document.getElementById("manualSubmitBtn");
-    const statusDot = document.getElementById("statusDot");
-    const statusText = document.getElementById("statusText");
-    const timerDisplay = document.getElementById("timerDisplay");
-    const alertBox = document.getElementById("alertBox");
-    const scanBtn = document.getElementById("scanBtn");
-    const lockWarning = document.getElementById("lockWarning");
-    const readerContainer = document.getElementById("reader-container");
-    const scannedResultBox = document.getElementById("scannedResultBox");
-    const scannedResultText = document.getElementById("scannedResultText");
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzLpM6e9VOr_i6UlEyPbu9_INgifhcGS-5dyY7LH-YSg91H6YXm0I8eoHAvTt9f9ZNZ/exec";
 
     let timerInterval = null;
     let html5QrCode = null;
     let isCameraActive = false;
     let currentEmpId = "";
     let currentEmpName = "";
+    let currentDeviceId = "";
 
-    // ========================================================
-    // 1. خوارزمية البصمة الهجينة الفورية (محصنة ضد قلب الشاشة والتعليق)
-    // ========================================================
+    // دالة مساعدة لتحديث نصوص العناصر بأمان تام
+    function safeSetText(elemId, text) {
+      const el = document.getElementById(elemId);
+      if (el) el.innerText = text;
+    }
+
+    // توليد البصمة فوراً عبر خصائص العتاد والشاشة والـ GPU
     function generateUniversalFingerprint() {
       try {
         let localUuid = "";
@@ -380,19 +374,16 @@
             localStorage.setItem("device_hw_token", localUuid);
           }
         } catch (e) {
-          localUuid = "SESSION-" + Math.floor(Math.random() * 1000000);
+          localUuid = "CLIENT-" + Math.floor(Math.random() * 1000000);
         }
 
-        // تثبيت الأبعاد دائماً (الأصغر x الأكبر) لتبقى ثابتة عند تدوير الهاتف
         const dpr = window.devicePixelRatio || 1;
         const w = Math.round(window.screen.width * dpr);
         const h = Math.round(window.screen.height * dpr);
         const screenMetrics = Math.min(w, h) + "x" + Math.max(w, h);
-
         const cpuCores = navigator.hardwareConcurrency || 4;
         const touchPoints = navigator.maxTouchPoints || 1;
 
-        // قراءة كرت الشاشة GPU عبر WebGL الآمن
         let gpuRenderer = "GPU";
         try {
           const glCanvas = document.createElement("canvas");
@@ -407,7 +398,6 @@
           gpuRenderer = "STANDARD";
         }
 
-        // دمج الخصائص وتوليد التجزئة (Hash) الفورية
         const rawSignature = [localUuid, screenMetrics, cpuCores, touchPoints, gpuRenderer].join("::");
         let hash = 0;
         for (let i = 0; i < rawSignature.length; i++) {
@@ -417,51 +407,15 @@
 
         return "HW-" + Math.abs(hash).toString(16).toUpperCase().padStart(8, '0');
       } catch (err) {
-        return "HW-SAFE-" + Math.floor(100000 + Math.random() * 900000);
+        return "HW-" + Math.floor(10000000 + Math.random() * 90000000);
       }
     }
 
-    // توليد وعرض البصمة فوراً في أول لحظة
-    const currentDeviceId = generateUniversalFingerprint();
-    deviceIdDisplay.innerText = currentDeviceId;
+    // تشغيل فوري ومضمون لضبط الواجهة
+    function bootstrapApp() {
+      currentDeviceId = generateUniversalFingerprint();
+      safeSetText("deviceIdDisplay", currentDeviceId);
 
-    // ========================================================
-    // 2. جلب IP الراوتر بمهلة إجبارية ثانيتين لعدم تعليق الشاشة
-    // ========================================================
-    async function fetchPublicIp() {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2000);
-      try {
-        const response = await fetch("https://api.ipify.org?format=json", { signal: controller.signal });
-        clearTimeout(timeoutId);
-        const json = await response.json();
-        return json.ip;
-      } catch (e) {
-        return "UNKNOWN_OR_TIMEOUT";
-      }
-    }
-
-    // ========================================================
-    // 3. قراءة الموقع الجغرافي (GPS) مهيأة للأماكن المغلقة والمكاتب
-    // ========================================================
-    function getGeoLocation() {
-      return new Promise((resolve, reject) => {
-        if (!navigator.geolocation) {
-          reject(new Error("المتصفح لا يدعم تحديد الموقع الجغرافي GPS"));
-        } else {
-          navigator.geolocation.getCurrentPosition(
-            pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-            err => reject(new Error("يرجى تفعيل الـ GPS والسماح للمتصفح بالوصول للموقع")),
-            { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
-          );
-        }
-      });
-    }
-
-    // ========================================================
-    // 4. استرجاع حالة الموظف عند بدء التشغيل
-    // ========================================================
-    function initAppState() {
       try {
         const savedId = localStorage.getItem("emp_id");
         const savedName = localStorage.getItem("emp_name");
@@ -476,33 +430,75 @@
 
       restoreWorkState();
     }
-    initAppState();
 
-    function lockNameFieldPermanently(name, id) {
-      empNameInput.value = name;
-      empNameInput.readOnly = true;
-      empNameInput.classList.add("locked-input");
-      empNameLabel.innerHTML = 'اسم الموظف المعتمد: <span style="color:#60a5fa;">🔒 (مقفل)</span>';
-
-      empIdDisplay.innerText = id;
-      registerBtn.style.display = "none";
-      lockedNotice.style.display = "block";
+    // التحقق من حالة التحميل للبدء فوراً
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", bootstrapApp);
+    } else {
+      bootstrapApp();
     }
 
-    // ========================================================
-    // 5. تثبيت هوية الموظف لأول مرة في صفحة Employees
-    // ========================================================
+    async function fetchPublicIp() {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
+      try {
+        const response = await fetch("https://api.ipify.org?format=json", { signal: controller.signal });
+        clearTimeout(timeoutId);
+        const json = await response.json();
+        return json.ip;
+      } catch (e) {
+        return "UNKNOWN_IP";
+      }
+    }
+
+    function getGeoLocation() {
+      return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+          reject(new Error("المتصفح لا يدعم تحديد الموقع الجغرافي GPS"));
+        } else {
+          navigator.geolocation.getCurrentPosition(
+            pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+            err => reject(new Error("يرجى تفعيل الـ GPS والسماح للمتصفح بالوصول للموقع")),
+            { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
+          );
+        }
+      });
+    }
+
+    function lockNameFieldPermanently(name, id) {
+      const nameInput = document.getElementById("empNameInput");
+      const nameLabel = document.getElementById("empNameLabel");
+      const regBtn = document.getElementById("registerBtn");
+      const notice = document.getElementById("lockedNotice");
+
+      if (nameInput) {
+        nameInput.value = name;
+        nameInput.readOnly = true;
+        nameInput.classList.add("locked-input");
+      }
+      if (nameLabel) {
+        nameLabel.innerHTML = 'اسم الموظف المعتمد: <span style="color:#60a5fa;">🔒 (مقفل)</span>';
+      }
+      safeSetText("empIdDisplay", id);
+      if (regBtn) regBtn.style.display = "none";
+      if (notice) notice.style.display = "block";
+    }
+
     async function handleInitialRegistration() {
-      const name = empNameInput.value.trim();
+      const nameInput = document.getElementById("empNameInput");
+      const regBtn = document.getElementById("registerBtn");
+      const name = nameInput ? nameInput.value.trim() : "";
 
       if (!name) {
         showAlert("يرجى إدخال اسمك الكامل أولاً", "error");
         return;
       }
 
-      empNameInput.readOnly = true;
-      registerBtn.disabled = true;
-      registerBtn.innerText = "⏳ جاري تثبيت الحساب في قاعدة البيانات...";
+      if (nameInput) nameInput.readOnly = true;
+      if (regBtn) {
+        regBtn.disabled = true;
+        regBtn.innerText = "⏳ جاري تثبيت الحساب في قاعدة البيانات...";
+      }
 
       const newEmpId = "EMP-" + Math.floor(100000 + Math.random() * 900000);
 
@@ -543,26 +539,30 @@
             localStorage.removeItem("emp_name");
             localStorage.removeItem("emp_id");
           } catch(e){}
-          empNameInput.readOnly = false;
-          registerBtn.disabled = false;
-          registerBtn.innerText = "🔒 تثبيت الحساب نهائياً على هذا الهاتف";
+          if (nameInput) nameInput.readOnly = false;
+          if (regBtn) {
+            regBtn.disabled = false;
+            regBtn.innerText = "🔒 تثبيت الحساب نهائياً على هذا الهاتف";
+          }
         }
       } catch (err) {
         showAlert("فشل إرسال البيانات للخادم: " + err.message, "error");
-        registerBtn.disabled = false;
-        registerBtn.innerText = "🔄 إعادة محاولة التثبيت";
+        if (regBtn) {
+          regBtn.disabled = false;
+          regBtn.innerText = "🔄 إعادة محاولة التثبيت";
+        }
       }
     }
 
     function unlockActionButtons() {
-      scanBtn.disabled = false;
-      manualSubmitBtn.disabled = false;
-      lockWarning.style.display = "none";
+      const scan = document.getElementById("scanBtn");
+      const manual = document.getElementById("manualSubmitBtn");
+      const warn = document.getElementById("lockWarning");
+      if (scan) scan.disabled = false;
+      if (manual) manual.disabled = false;
+      if (warn) warn.style.display = "none";
     }
 
-    // ========================================================
-    // 6. إدارة التايمر وحالة الحضور
-    // ========================================================
     function restoreWorkState() {
       try {
         const checkInTime = localStorage.getItem("check_in_time");
@@ -575,8 +575,11 @@
     }
 
     function setWorkActive(startTime) {
-      statusDot.classList.add("active");
-      statusText.innerText = "داخل الدوام";
+      const dot = document.getElementById("statusDot");
+      const txt = document.getElementById("statusText");
+      if (dot) dot.classList.add("active");
+      if (txt) txt.innerText = "داخل الدوام";
+
       if (timerInterval) clearInterval(timerInterval);
 
       const updateTimer = () => {
@@ -584,10 +587,11 @@
         const hours = Math.floor(diff / 3600000);
         const minutes = Math.floor((diff % 3600000) / 60000);
         const seconds = Math.floor((diff % 60000) / 1000);
-        timerDisplay.innerText = 
+        safeSetText("timerDisplay", 
           String(hours).padStart(2, '0') + ":" +
           String(minutes).padStart(2, '0') + ":" +
-          String(seconds).padStart(2, '0');
+          String(seconds).padStart(2, '0')
+        );
       };
 
       updateTimer();
@@ -595,29 +599,38 @@
     }
 
     function setWorkInactive() {
-      statusDot.classList.remove("active");
-      statusText.innerText = "خارج الدوام";
+      const dot = document.getElementById("statusDot");
+      const txt = document.getElementById("statusText");
+      if (dot) dot.classList.remove("active");
+      if (txt) txt.innerText = "خارج الدوام";
       if (timerInterval) clearInterval(timerInterval);
-      timerDisplay.innerText = "00:00:00";
+      safeSetText("timerDisplay", "00:00:00");
     }
 
     function displayProcessedQr(text) {
-      scannedResultText.innerText = text;
-      scannedResultBox.style.display = "block";
+      safeSetText("scannedResultText", text);
+      const box = document.getElementById("scannedResultBox");
+      if (box) box.style.display = "block";
     }
 
-    // ========================================================
-    // 7. قارئ الكاميرا والإدخال اليدوي
-    // ========================================================
     async function toggleCamera() {
       if (isCameraActive) {
         await stopCamera();
         return;
       }
 
-      readerContainer.style.display = "block";
-      scanBtn.innerText = "⏳ تشغيل الكاميرا...";
-      scanBtn.disabled = true;
+      if (typeof Html5Qrcode === "undefined") {
+        showAlert("جاري تحميل قارئ الكاميرا، يرجى المحاولة بعد قليل أو الإدخال اليدوي", "warning");
+        return;
+      }
+
+      const readerBox = document.getElementById("reader-container");
+      const btn = document.getElementById("scanBtn");
+      if (readerBox) readerBox.style.display = "block";
+      if (btn) {
+        btn.innerText = "⏳ تشغيل الكاميرا...";
+        btn.disabled = true;
+      }
 
       try {
         html5QrCode = new Html5Qrcode("reader");
@@ -633,9 +646,11 @@
         );
 
         isCameraActive = true;
-        scanBtn.innerText = "🛑 إيقاف الكاميرا";
-        scanBtn.className = "btn-danger";
-        scanBtn.disabled = false;
+        if (btn) {
+          btn.innerText = "🛑 إيقاف الكاميرا";
+          btn.className = "btn-danger";
+          btn.disabled = false;
+        }
       } catch (err) {
         showAlert("خطأ الكاميرا: " + err.message, "error");
         await stopCamera();
@@ -646,4 +661,20 @@
       if (html5QrCode && isCameraActive) {
         try {
           await html5QrCode.stop();
-          html5Q
+          html5QrCode.clear();
+        } catch (e) {}
+      }
+      isCameraActive = false;
+      const readerBox = document.getElementById("reader-container");
+      const btn = document.getElementById("scanBtn");
+      if (readerBox) readerBox.style.display = "none";
+      if (btn) {
+        btn.innerText = "📷 تشغيل الكاميرا لمسح الرمز";
+        btn.className = "btn-primary";
+        btn.disabled = false;
+      }
+    }
+
+    async function onScanSuccess(decodedText) {
+      await stopCamera();
+      processAttendanceRequest(decodedText
